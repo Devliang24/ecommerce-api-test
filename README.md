@@ -13,6 +13,7 @@
 - ✅ **管理后台** - 分类管理、商品管理、订单查看
 - ✅ **数据库验证** - SQL 断言验证数据一致性
 - ✅ **格式转换** - 支持 cURL、Postman、HAR、OpenAPI 导入
+- 🚀 **CI/CD 流水线** - 自动化 E2E 业务流程测试，支持飞书通知
 
 ## 🏗️ 项目架构
 
@@ -351,43 +352,56 @@ Error: SQL assertion failed
 - 重新运行登录测试获取新Token
 - 检查Token自动刷新机制
 
-## 🔄 CI/CD 集成
+## 🔄 CI/CD 流水线
 
-### GitHub Actions 示例
+本项目已配置完整的 E2E 业务流程测试流水线，基于 GitHub Actions 实现。
 
-```yaml
-name: E-commerce API Tests
+### 🚀 流水线特性
 
-on: [push, pull_request]
+- **自动触发**: 推送到任意分支或创建 Pull Request 时自动运行
+- **完整测试**: 执行 `test_e2e_purchase.yaml` 完整购物流程（12个业务步骤）
+- **飞书通知**: 实时发送测试开始、成功、失败通知到团队群聊
+- **测试报告**: 生成 HTML 和 JSON 格式报告，支持 GitHub Artifacts 下载
+- **环境配置**: 自动使用项目中的 `.env` 文件配置
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+### 📋 测试流程覆盖
 
-      - name: Install Drun
-        run: pip install -e ../drun
+E2E 测试涵盖完整业务旅程：
+1. 用户注册 → 2. 用户登录 → 3. 浏览商品分类 → 4. 查看商品详情
+5. 添加购物车 → 6. 查看购物车 → 7. 创建订单 → 8. 验证库存扣减
+9. 查看订单详情 → 10. 验证购物车清空 → 11. 查看订单列表 → 12. 业务流程完成
 
-      - name: Run Smoke Tests
-        env:
-          BASE_URL: http://110.40.159.145:9099
-          MYSQL_MAIN__DEFAULT__DSN: ${{ secrets.MYSQL_MAIN_DEFAULT_DSN }}
-        run: |
-          cd ecommerce-api-test
-          drun run testsuites/testsuite_smoke.yaml \
-            --html reports/smoke_report.html
+### 🔧 快速设置
 
-      - name: Upload Reports
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: test-reports
-          path: ecommerce-api-test/reports/
-```
+1. **配置飞书机器人**
+   ```bash
+   # 1. 在飞书群聊添加自定义机器人
+   # 2. 复制 Webhook URL
+   # 3. 在 GitHub Settings > Secrets > Actions 添加：
+   #    FEISHU_WEBHOOK_URL: [你的机器人Webhook URL]
+   ```
+
+2. **提交代码触发测试**
+   ```bash
+   git add .
+   git commit -m "feat: 配置E2E测试流水线"
+   git push origin main
+   ```
+
+3. **查看测试结果**
+   - GitHub Actions 页面查看执行日志
+   - 飞书群聊接收实时通知
+   - 下载测试报告查看详细信息
+
+### 📖 详细文档
+
+完整的流水线设置指南请参考：[PIPELINE_SETUP.md](./PIPELINE_SETUP.md)
+
+包含以下内容：
+- 详细的配置步骤
+- 飞书机器人设置指南
+- 故障排查方法
+- 最佳实践建议
 
 ### 测试报告集成
 

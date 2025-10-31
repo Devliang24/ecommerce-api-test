@@ -1,0 +1,280 @@
+name: E2E业务流程测试流水线
+
+# 触发条件：推送到任意分支或创建Pull Request
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+# 全局环境变量
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  e2e-test:
+    name: E2E业务流程测试
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pyyaml
+          # 如果drun有其他依赖，请在这里添加
+
+      - name: 创建必要目录
+        run: |
+          mkdir -p reports
+          mkdir -p logs
+
+      - name: 发送测试开始通知（飞书）
+        if: always()
+        run: |
+          # 发送测试开始通知
+          payload=$(cat <<EOF
+          {
+            "msg_type": "interactive",
+            "card": {
+              "config": {
+                "wide_screen_mode": true
+              },
+              "header": {
+                "template": "blue",
+                "title": {
+                  "content": "🚀 E2E业务流程测试开始",
+                  "tag": "plain_text"
+                }
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "content": "**测试项目**: E-commerce API E2E测试\n**触发方式**: ${{ github.event_name }}\n**分支**: ${{ github.ref_name }}\n**提交者**: ${{ github.actor }}\n**提交信息**: ${{ github.event.head_commit.message }}\n**测试用例**: test_e2e_purchase.yaml",
+                    "tag": "lark_md"
+                  }
+                },
+                {
+                  "tag": "action",
+                  "actions": [
+                    {
+                      "tag": "button",
+                      "text": {
+                        "content": "查看提交",
+                        "tag": "plain_text"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          EOF
+          )
+
+          curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" || echo "飞书通知发送失败，继续执行测试"
+
+      - name: 运行E2E测试
+        id: run-test
+        run: |
+          echo "开始执行E2E业务流程测试..."
+
+          # 使用项目中的.env文件
+          if [ -f ".env" ]; then
+            echo "找到.env配置文件，加载环境变量"
+            # 读取.env文件并设置为环境变量
+            set -a
+            source .env
+            set +a
+          else
+            echo "警告：未找到.env文件"
+            exit 1
+          fi
+
+          # 创建测试报告目录
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          report_dir="reports/e2e_${timestamp}"
+          mkdir -p "$report_dir"
+
+          # 运行E2E测试并生成报告
+          echo "执行测试命令: drun run testcases/test_e2e_purchase.yaml"
+
+          # 检查drun是否可用
+          if ! command -v drun &> /dev/null; then
+            echo "drun未安装，尝试安装..."
+            # 这里可能需要根据实际的drun安装方式调整
+            pip install drun-framework || echo "请手动安装drun框架"
+          fi
+
+          # 执行测试
+          if drun run testcases/test_e2e_purchase.yaml \
+            --html "$report_dir/e2e_report.html" \
+            --report "$report_dir/e2e_report.json" \
+            --log-level info; then
+
+            echo "✅ E2E测试执行成功"
+            echo "test_status=success" >> $GITHUB_OUTPUT
+            echo "report_dir=$report_dir" >> $GITHUB_OUTPUT
+
+          else
+            echo "❌ E2E测试执行失败"
+            echo "test_status=failure" >> $GITHUB_OUTPUT
+            echo "report_dir=$report_dir" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 发送测试成功通知（飞书）
+        if: steps.run-test.outputs.test_status == 'success'
+        run: |
+          payload=$(cat <<EOF
+          {
+            "msg_type": "interactive",
+            "card": {
+              "config": {
+                "wide_screen_mode": true
+              },
+              "header": {
+                "template": "green",
+                "title": {
+                  "content": "✅ E2E业务流程测试通过",
+                  "tag": "plain_text"
+                }
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "content": "**测试结果**: 全部通过 ✅\n**测试用例**: test_e2e_purchase.yaml\n**执行时间**: $(date '+%Y-%m-%d %H:%M:%S')\n**分支**: ${{ github.ref_name }}\n**提交者**: ${{ github.actor }}\n**提交信息**: ${{ github.event.head_commit.message }}",
+                    "tag": "lark_md"
+                  }
+                },
+                {
+                  "tag": "action",
+                  "actions": [
+                    {
+                      "tag": "button",
+                      "text": {
+                        "content": "查看测试报告",
+                        "tag": "plain_text"
+                      },
+                      "type": "primary",
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    },
+                    {
+                      "tag": "button",
+                      "text": {
+                        "content": "查看提交",
+                        "tag": "plain_text"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          EOF
+          )
+
+          curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" || echo "飞书通知发送失败"
+
+      - name: 发送测试失败通知（飞书）
+        if: steps.run-test.outputs.test_status == 'failure'
+        run: |
+          payload=$(cat <<EOF
+          {
+            "msg_type": "interactive",
+            "card": {
+              "config": {
+                "wide_screen_mode": true
+              },
+              "header": {
+                "template": "red",
+                "title": {
+                  "content": "❌ E2E业务流程测试失败",
+                  "tag": "plain_text"
+                }
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "content": "**测试结果**: 失败 ❌\n**测试用例**: test_e2e_purchase.yaml\n**失败时间**: $(date '+%Y-%m-%d %H:%M:%S')\n**分支**: ${{ github.ref_name }}\n**提交者**: ${{ github.actor }}\n**提交信息**: ${{ github.event.head_commit.message }}\n\n请及时检查测试失败原因并修复问题！",
+                    "tag": "lark_md"
+                  }
+                },
+                {
+                  "tag": "action",
+                  "actions": [
+                    {
+                      "tag": "button",
+                      "text": {
+                        "content": "查看测试日志",
+                        "tag": "plain_text"
+                      },
+                      "type": "danger",
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    },
+                    {
+                      "tag": "button",
+                      "text": {
+                        "content": "查看提交",
+                        "tag": "plain_text"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          EOF
+          )
+
+          curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" || echo "飞书通知发送失败"
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-reports
+          path: reports/
+          retention-days: 30
+
+      - name: 显示测试报告摘要
+        if: always()
+        run: |
+          echo "## 📊 E2E测试报告摘要" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.run-test.outputs.test_status }}" == "success" ]; then
+            echo "✅ **测试状态**: 通过" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **测试状态**: 失败" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 测试信息" >> $GITHUB_STEP_SUMMARY
+          echo "- **测试用例**: test_e2e_purchase.yaml" >> $GITHUB_STEP_SUMMARY
+          echo "- **执行时间**: $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+          echo "- **分支**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **提交者**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **提交信息**: ${{ github.event.head_commit.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 测试报告" >> $GITHUB_STEP_SUMMARY
+          echo "测试报告已上传到 GitHub Actions Artifacts，可在本次运行记录中下载查看。" >> $GITHUB_STEP_SUMMARY
