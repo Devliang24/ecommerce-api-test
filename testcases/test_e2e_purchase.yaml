@@ -59,7 +59,7 @@ steps:
   - name: 步骤4 - 查看分类下的商品
     request:
       method: GET
-      path: /api/v1/products/?category_id=$category_id&in_stock=true&limit=5
+      path: /api/v1/products/?category_id=$category_id&limit=5
     extract:
       product1_id: $.data.items[0].id
       product1_name: $.data.items[0].name
