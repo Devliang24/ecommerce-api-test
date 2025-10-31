@@ -43,20 +43,25 @@ jobs:
           # 构建消息内容
           message="🚀 用户认证流程测试开始\n\n📊 测试项目: E-commerce API 用户认证测试\n🔄 触发方式: ${{ github.event_name }}\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交信息: ${{ github.event.head_commit.message }}\n📋 测试用例: test_auth_flow.yaml\n\n🔗 查看提交: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
 
-          # 创建JSON payload
-          payload=$(echo -n '{"msg_type":"text","content":{"text":"'"$message"'"}}')
-
           # 检查是否配置了飞书Webhook
           if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
             echo "✅ 检测到飞书Webhook URL，开始发送通知..."
             echo "📤 发送测试开始通知..."
 
-            response=$(curl -s -w '%{http_code}' -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+            # 使用jq构建正确的JSON payload
+            payload=$(jq -n --arg text "$message" '{msg_type: "text", content: {text: $text}}')
+
+            response=$(curl -s -w '\n%{http_code}' -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
               -H 'Content-Type: application/json' \
               -d "$payload")
 
-            http_code="${response: -3}"
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
+
             echo "📊 HTTP状态码: $http_code"
+            if [ -n "$body" ]; then
+              echo "📄 响应内容: $body"
+            fi
 
             if [ "$http_code" = "200" ]; then
               echo "✅ 飞书通知发送成功"
@@ -133,16 +138,22 @@ jobs:
             echo "📤 发送测试失败通知..."
           fi
 
-          # 创建JSON payload
-          payload=$(echo -n '{"msg_type":"text","content":{"text":"'"$message"'"}}')
-
           # 检查是否配置了飞书Webhook
           if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
-            response=$(curl -s -w '%{http_code}' -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+            # 使用jq构建正确的JSON payload
+            payload=$(jq -n --arg text "$message" '{msg_type: "text", content: {text: $text}}')
+
+            response=$(curl -s -w '\n%{http_code}' -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
               -H 'Content-Type: application/json' \
               -d "$payload")
 
-            http_code="${response: -3}"
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
+
+            echo "📊 HTTP状态码: $http_code"
+            if [ -n "$body" ]; then
+              echo "📄 响应内容: $body"
+            fi
 
             if [ "$http_code" = "200" ]; then
               echo "✅ 飞书通知发送成功"
