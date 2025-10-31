@@ -40,13 +40,25 @@ jobs:
       - name: 发送测试开始通知（飞书）
         if: always()
         run: |
-          # 简化的飞书通知 - 文本格式
-          payload='{
+          # 简化的飞书通知 - 使用EOF格式避免转义问题
+          payload=$(cat <<EOF
+          {
             "msg_type": "text",
             "content": {
-              "text": "🚀 用户认证流程测试开始\n\n📊 测试项目: E-commerce API 用户认证测试\n🔄 触发方式: ${{ github.event_name }}\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交信息: ${{ github.event.head_commit.message }}\n📋 测试用例: test_auth_flow.yaml\n\n🔗 查看提交: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+              "text": "🚀 用户认证流程测试开始
+
+📊 测试项目: E-commerce API 用户认证测试
+🔄 触发方式: ${{ github.event_name }}
+🌿 分支: ${{ github.ref_name }}
+👤 提交者: ${{ github.actor }}
+📝 提交信息: ${{ github.event.head_commit.message }}
+📋 测试用例: test_auth_flow.yaml
+
+🔗 查看提交: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
             }
-          }'
+          }
+        EOF
+        )
 
           # 检查是否配置了飞书Webhook
           if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
@@ -131,21 +143,47 @@ jobs:
           # 根据测试结果发送不同通知
           if [ "${{ steps.run-test.outputs.test_status }}" == "success" ]; then
             # 成功通知
-            payload='{
+            payload=$(cat <<EOF
+            {
               "msg_type": "text",
               "content": {
-                "text": "✅ 用户认证流程测试通过\n\n📊 测试结果: 全部通过 ✅\n📋 测试用例: test_auth_flow.yaml\n⏰ 执行时间: '$(date '+%Y-%m-%d %H:%M:%S')'\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交信息: ${{ github.event.head_commit.message }}\n\n🔗 查看测试报告: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                "text": "✅ 用户认证流程测试通过
+
+📊 测试结果: 全部通过 ✅
+📋 测试用例: test_auth_flow.yaml
+⏰ 执行时间: $(date '+%Y-%m-%d %H:%M:%S')
+🌿 分支: ${{ github.ref_name }}
+👤 提交者: ${{ github.actor }}
+📝 提交信息: ${{ github.event.head_commit.message }}
+
+🔗 查看测试报告: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
               }
-            }'
+            }
+          EOF
+          )
             echo "📤 发送测试成功通知..."
           else
             # 失败通知
-            payload='{
+            payload=$(cat <<EOF
+            {
               "msg_type": "text",
               "content": {
-                "text": "❌ 用户认证流程测试失败\n\n📊 测试结果: 失败 ❌\n📋 测试用例: test_auth_flow.yaml\n⏰ 失败时间: '$(date '+%Y-%m-%d %H:%M:%S')'\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交信息: ${{ github.event.head_commit.message }}\n\n请及时检查测试失败原因并修复问题！\n\n🔗 查看测试日志: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                "text": "❌ 用户认证流程测试失败
+
+📊 测试结果: 失败 ❌
+📋 测试用例: test_auth_flow.yaml
+⏰ 失败时间: $(date '+%Y-%m-%d %H:%M:%S')
+🌿 分支: ${{ github.ref_name }}
+👤 提交者: ${{ github.actor }}
+📝 提交信息: ${{ github.event.head_commit.message }}
+
+请及时检查测试失败原因并修复问题！
+
+🔗 查看测试日志: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
               }
-            }'
+            }
+          EOF
+          )
             echo "📤 发送测试失败通知..."
           fi
 
