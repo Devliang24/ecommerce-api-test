@@ -1,0 +1,200 @@
+name: 用户认证流程测试流水线（简化版）
+
+# 触发条件：推送到任意分支或创建Pull Request
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+# 全局环境变量
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  auth-test:
+    name: 用户认证流程测试
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pyyaml
+          # 安装 Drun 框架
+          pip install git+https://github.com/Devliang24/drun.git
+
+      - name: 创建必要目录
+        run: |
+          mkdir -p reports
+          mkdir -p logs
+
+      - name: 发送测试开始通知（飞书）
+        if: always()
+        run: |
+          # 简化的飞书通知 - 文本格式
+          payload='{
+            "msg_type": "text",
+            "content": {
+              "text": "🚀 用户认证流程测试开始\n\n📊 测试项目: E-commerce API 用户认证测试\n🔄 触发方式: ${{ github.event_name }}\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交信息: ${{ github.event.head_commit.message }}\n📋 测试用例: test_auth_flow.yaml\n\n🔗 查看提交: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+            }
+          }'
+
+          # 检查是否配置了飞书Webhook
+          if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
+            echo "✅ 检测到飞书Webhook URL，开始发送通知..."
+            echo "📤 发送测试开始通知..."
+
+            response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -d "$payload")
+
+            http_code=$(echo "$response" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+            response_body=$(echo "$response" | sed -e 's/HTTP_CODE:[0-9]*$//')
+
+            echo "📊 HTTP状态码: $http_code"
+            echo "📄 响应内容: $response_body"
+
+            if [ "$http_code" = "200" ]; then
+              echo "✅ 飞书通知发送成功"
+            else
+              echo "❌ 飞书通知发送失败 (HTTP $http_code)"
+              echo "🔍 响应详情: $response_body"
+            fi
+          else
+            echo "⚠️ 未配置飞书Webhook URL，跳过通知发送"
+          fi
+
+      - name: 运行用户认证测试
+        id: run-test
+        run: |
+          echo "开始执行用户认证流程测试..."
+
+          # 使用项目中的.env文件
+          if [ -f ".env" ]; then
+            echo "找到.env配置文件，加载环境变量"
+            # 安全地读取.env文件并设置为环境变量
+            while IFS= read -r line; do
+              # 跳过注释行和空行
+              if [[ ! "$line" =~ ^[[:space:]]*# ]] && [[ -n "$line" ]]; then
+                # 使用export命令设置环境变量，正确处理包含空格的值
+                export "$line"
+              fi
+            done < .env
+          else
+            echo "警告：未找到.env文件"
+            exit 1
+          fi
+
+          # 创建测试报告目录
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          report_dir="reports/auth_${timestamp}"
+          mkdir -p "$report_dir"
+
+          # 运行用户认证流程测试并生成报告
+          echo "执行测试命令: drun run testcases/test_auth_flow.yaml"
+
+          # 验证drun是否可用
+          if ! command -v drun &> /dev/null; then
+            echo "❌ drun命令未找到，安装失败"
+            exit 1
+          fi
+
+          # 执行测试
+          if drun run testcases/test_auth_flow.yaml \
+            --html "$report_dir/auth_report.html" \
+            --report "$report_dir/auth_report.json" \
+            --log-level info; then
+
+            echo "✅ 用户认证流程测试执行成功"
+            echo "test_status=success" >> $GITHUB_OUTPUT
+            echo "report_dir=$report_dir" >> $GITHUB_OUTPUT
+
+          else
+            echo "❌ 用户认证流程测试执行失败"
+            echo "test_status=failure" >> $GITHUB_OUTPUT
+            echo "report_dir=$report_dir" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 发送测试结果通知（飞书）
+        if: always()
+        run: |
+          # 根据测试结果发送不同通知
+          if [ "${{ steps.run-test.outputs.test_status }}" == "success" ]; then
+            # 成功通知
+            payload='{
+              "msg_type": "text",
+              "content": {
+                "text": "✅ 用户认证流程测试通过\n\n📊 测试结果: 全部通过 ✅\n📋 测试用例: test_auth_flow.yaml\n⏰ 执行时间: '$(date '+%Y-%m-%d %H:%M:%S')'\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交信息: ${{ github.event.head_commit.message }}\n\n🔗 查看测试报告: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }
+            }'
+            echo "📤 发送测试成功通知..."
+          else
+            # 失败通知
+            payload='{
+              "msg_type": "text",
+              "content": {
+                "text": "❌ 用户认证流程测试失败\n\n📊 测试结果: 失败 ❌\n📋 测试用例: test_auth_flow.yaml\n⏰ 失败时间: '$(date '+%Y-%m-%d %H:%M:%S')'\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交信息: ${{ github.event.head_commit.message }}\n\n请及时检查测试失败原因并修复问题！\n\n🔗 查看测试日志: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }
+            }'
+            echo "📤 发送测试失败通知..."
+          fi
+
+          # 检查是否配置了飞书Webhook
+          if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
+            response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -d "$payload")
+
+            http_code=$(echo "$response" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+            response_body=$(echo "$response" | sed -e 's/HTTP_CODE:[0-9]*$//')
+
+            if [ "$http_code" = "200" ]; then
+              echo "✅ 飞书通知发送成功"
+            else
+              echo "❌ 飞书通知发送失败 (HTTP $http_code)"
+              echo "🔍 响应详情: $response_body"
+            fi
+          else
+            echo "未配置飞书Webhook URL，跳过通知发送"
+          fi
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-test-reports
+          path: reports/
+          retention-days: 30
+
+      - name: 显示测试报告摘要
+        if: always()
+        run: |
+          echo "## 📊 用户认证测试报告摘要" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.run-test.outputs.test_status }}" == "success" ]; then
+            echo "✅ **测试状态**: 通过" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **测试状态**: 失败" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 测试信息" >> $GITHUB_STEP_SUMMARY
+          echo "- **测试用例**: test_auth_flow.yaml" >> $GITHUB_STEP_SUMMARY
+          echo "- **执行时间**: $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+          echo "- **分支**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **提交者**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **提交信息**: ${{ github.event.head_commit.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 测试报告" >> $GITHUB_STEP_SUMMARY
+          echo "测试报告已上传到 GitHub Actions Artifacts，可在本次运行记录中下载查看。" >> $GITHUB_STEP_SUMMARY
