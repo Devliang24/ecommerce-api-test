@@ -44,7 +44,7 @@ jobs:
           commit_title=$(echo "${{ github.event.head_commit.message }}" | head -n1)
           
           # 构建消息内容
-          message="🚀 测试开始\n\n📊 项目: E-commerce API 用户认证\n📋 用例: test_auth_flow.yaml\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交: ${commit_title}\n\n🔗 ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          message=$'🚀 测试开始\n\n📊 项目: E-commerce API 用户认证\n📋 用例: test_auth_flow.yaml\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n📝 提交: '"${commit_title}"$'\n\n🔗 ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}'
 
           # 检查是否配置了飞书Webhook
           if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
@@ -133,11 +133,11 @@ jobs:
           # 根据测试结果发送不同通知
           if [ "${{ steps.run-test.outputs.test_status }}" == "success" ]; then
             # 成功通知
-            message="✅ 测试通过\n\n📊 项目: E-commerce API 用户认证\n📋 用例: test_auth_flow.yaml\n📈 结果: 全部通过\n⏰ 时间: $(date '+%Y-%m-%d %H:%M:%S')\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n\n🔗 查看报告\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            message=$'✅ 测试通过\n\n📊 项目: E-commerce API 用户认证\n📋 用例: test_auth_flow.yaml\n📈 结果: 全部通过\n⏰ 时间: '"$(date '+%Y-%m-%d %H:%M:%S')"$'\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n\n🔗 查看报告\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             echo "📤 发送测试成功通知..."
           else
             # 失败通知
-            message="❌ 测试失败\n\n📊 项目: E-commerce API 用户认证\n📋 用例: test_auth_flow.yaml\n📈 结果: 测试失败\n⏰ 时间: $(date '+%Y-%m-%d %H:%M:%S')\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n\n⚠️ 请及时检查并修复问题\n\n🔗 查看日志\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            message=$'❌ 测试失败\n\n📊 项目: E-commerce API 用户认证\n📋 用例: test_auth_flow.yaml\n📈 结果: 测试失败\n⏰ 时间: '"$(date '+%Y-%m-%d %H:%M:%S')"$'\n🌿 分支: ${{ github.ref_name }}\n👤 提交者: ${{ github.actor }}\n\n⚠️ 请及时检查并修复问题\n\n🔗 查看日志\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             echo "📤 发送测试失败通知..."
           fi
 
