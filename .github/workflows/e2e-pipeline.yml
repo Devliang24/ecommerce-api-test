@@ -82,9 +82,15 @@ jobs:
           EOF
           )
 
-          curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "$payload" || echo "飞书通知发送失败，继续执行测试"
+          # 检查是否配置了飞书Webhook
+          if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
+            echo "发送飞书通知..."
+            curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" && echo "飞书通知发送成功" || echo "飞书通知发送失败，继续执行测试"
+          else
+            echo "未配置飞书Webhook URL，跳过通知发送"
+          fi
 
       - name: 运行用户认证测试
         id: run-test
@@ -191,9 +197,15 @@ jobs:
           EOF
           )
 
-          curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "$payload" || echo "飞书通知发送失败"
+          # 检查是否配置了飞书Webhook
+          if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
+            echo "发送测试成功通知..."
+            curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" && echo "成功通知发送成功" || echo "成功通知发送失败"
+          else
+            echo "未配置飞书Webhook URL，跳过成功通知发送"
+          fi
 
       - name: 发送测试失败通知（飞书）
         if: steps.run-test.outputs.test_status == 'failure'
@@ -248,15 +260,21 @@ jobs:
           EOF
           )
 
-          curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "$payload" || echo "飞书通知发送失败"
+          # 检查是否配置了飞书Webhook
+          if [ -n "${{ secrets.FEISHU_WEBHOOK_URL }}" ]; then
+            echo "发送测试失败通知..."
+            curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" && echo "失败通知发送成功" || echo "失败通知发送失败"
+          else
+            echo "未配置飞书Webhook URL，跳过失败通知发送"
+          fi
 
       - name: 上传测试报告
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-test-reports
+          name: auth-test-reports
           path: reports/
           retention-days: 30
 
