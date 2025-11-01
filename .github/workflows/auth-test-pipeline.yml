@@ -111,9 +111,9 @@ jobs:
           fi
 
           # 执行测试
-          if drun run testcases/test_auth_flow.yaml \
-            --html "$report_dir/auth_report.html" \
-            --report "$report_dir/auth_report.json" \
+          if drun run testcases/test_user_with_sql.yaml \
+            --html "$report_dir/test_user_with_sql.html" \
+            --report "$report_dir/test_user_with_sql.json" \
             --log-level info; then
 
             echo "✅ 用户认证流程测试执行成功"
