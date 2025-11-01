@@ -28,7 +28,7 @@ jobs:
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
-          pip install requests pyyaml
+          pip install requests pyyaml pymysql
           # 安装 Drun 框架
           pip install git+https://github.com/Devliang24/drun.git
 

@@ -111,6 +111,11 @@ validate:
 
 ### 1. 环境配置
 
+安装运行依赖（包含 MySQL 驱动）：
+```bash
+pip install drun requests pyyaml pymysql
+```
+
 复制环境配置文件：
 ```bash
 cp .env.example .env
