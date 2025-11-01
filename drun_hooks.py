@@ -380,56 +380,72 @@ def hook_query_user_email(user_id: int) -> str:
     """从数据库查询用户邮箱
     SQL: SELECT email FROM users WHERE id={user_id}
     """
-    proxy = _get_db_proxy()
-    result = proxy.query(f"SELECT email FROM users WHERE id={user_id}")
-    # proxy.query()返回列表，取第一条记录
-    if result and isinstance(result, list) and len(result) > 0:
-        return result[0].get('email', '')
-    elif result and isinstance(result, dict):
-        return result.get('email', '')
-    return ''
+    try:
+        proxy = _get_db_proxy()
+        result = proxy.query(f"SELECT email FROM users WHERE id={user_id}")
+        # proxy.query()返回列表，取第一条记录
+        if result and isinstance(result, list) and len(result) > 0:
+            return result[0].get('email', '')
+        elif result and isinstance(result, dict):
+            return result.get('email', '')
+        raise AssertionError(f"SQL查询无结果，无法获取用户邮箱: SELECT email FROM users WHERE id={user_id}")
+    except Exception as e:
+        print(f"❌ Hook error in hook_query_user_email({user_id}): {e}")
+        raise
 
 
 def hook_query_user_role(user_id: int) -> str:
     """从数据库查询用户角色
     SQL: SELECT role FROM users WHERE id={user_id}
     """
-    proxy = _get_db_proxy()
-    result = proxy.query(f"SELECT role FROM users WHERE id={user_id}")
-    # proxy.query()返回列表，取第一条记录
-    if result and isinstance(result, list) and len(result) > 0:
-        return result[0].get('role', '')
-    elif result and isinstance(result, dict):
-        return result.get('role', '')
-    return ''
+    try:
+        proxy = _get_db_proxy()
+        result = proxy.query(f"SELECT role FROM users WHERE id={user_id}")
+        # proxy.query()返回列表，取第一条记录
+        if result and isinstance(result, list) and len(result) > 0:
+            return result[0].get('role', '')
+        elif result and isinstance(result, dict):
+            return result.get('role', '')
+        raise AssertionError(f"SQL查询无结果，无法获取用户角色: SELECT role FROM users WHERE id={user_id}")
+    except Exception as e:
+        print(f"❌ Hook error in hook_query_user_role({user_id}): {e}")
+        raise
 
 
 def hook_query_user_full_name(user_id: int) -> str:
     """从数据库查询用户全名
     SQL: SELECT full_name FROM users WHERE id={user_id}
     """
-    proxy = _get_db_proxy()
-    result = proxy.query(f"SELECT full_name FROM users WHERE id={user_id}")
-    # proxy.query()返回列表，取第一条记录
-    if result and isinstance(result, list) and len(result) > 0:
-        return result[0].get('full_name', '')
-    elif result and isinstance(result, dict):
-        return result.get('full_name', '')
-    return ''
+    try:
+        proxy = _get_db_proxy()
+        result = proxy.query(f"SELECT full_name FROM users WHERE id={user_id}")
+        # proxy.query()返回列表，取第一条记录
+        if result and isinstance(result, list) and len(result) > 0:
+            return result[0].get('full_name', '')
+        elif result and isinstance(result, dict):
+            return result.get('full_name', '')
+        raise AssertionError(f"SQL查询无结果，无法获取用户全名: SELECT full_name FROM users WHERE id={user_id}")
+    except Exception as e:
+        print(f"❌ Hook error in hook_query_user_full_name({user_id}): {e}")
+        raise
 
 
 def hook_query_user_shipping_address(user_id: int) -> str:
     """从数据库查询用户收货地址
     SQL: SELECT shipping_address FROM users WHERE id={user_id}
     """
-    proxy = _get_db_proxy()
-    result = proxy.query(f"SELECT shipping_address FROM users WHERE id={user_id}")
-    # proxy.query()返回列表，取第一条记录
-    if result and isinstance(result, list) and len(result) > 0:
-        return result[0].get('shipping_address', '')
-    elif result and isinstance(result, dict):
-        return result.get('shipping_address', '')
-    return ''
+    try:
+        proxy = _get_db_proxy()
+        result = proxy.query(f"SELECT shipping_address FROM users WHERE id={user_id}")
+        # proxy.query()返回列表，取第一条记录
+        if result and isinstance(result, list) and len(result) > 0:
+            return result[0].get('shipping_address', '')
+        elif result and isinstance(result, dict):
+            return result.get('shipping_address', '')
+        raise AssertionError(f"SQL查询无结果，无法获取用户地址: SELECT shipping_address FROM users WHERE id={user_id}")
+    except Exception as e:
+        print(f"❌ Hook error in hook_query_user_shipping_address({user_id}): {e}")
+        raise
 
 
 # ========== 商品相关SQL查询 ==========
