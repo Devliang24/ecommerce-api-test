@@ -1,0 +1,74 @@
+config:
+  name: User Registration with SQL Validation
+  base_url: http://110.40.159.145:9099
+  variables:
+    timestamp: ${ts()}
+    user_id: ${short_uid(8)}
+    username: testuser_${user_id}_${timestamp}
+    email: ${user_id}_${timestamp}@test.com
+    password: Test@123456
+    full_name: Test User ${user_id}
+    shipping_address: Test Address ${user_id}, Street 123
+    role: user
+
+steps:
+  - name: POST /api/v1/auth/register
+    request:
+      method: POST
+      path: /api/v1/auth/register
+      headers:
+        accept: application/json
+        Content-Type: application/json
+      body:
+        username: $username
+        email: $email
+        full_name: $full_name
+        shipping_address: $shipping_address
+        password: $password
+        role: $role
+    extract:
+      created_user_id: $.data.id
+      access_token: $.data.access_token
+    validate:
+      - eq: [status_code, 200]
+      - contains: [headers.Content-Type, application/json]
+      - ne: [$, null]
+      - eq: [$.data.username, $username]
+      - eq: [$.data.email, $email]
+      - eq: [$.data.full_name, $full_name]
+      - eq: [$.data.role, $role]
+    teardown_hooks:
+      - ${teardown_hook_record_test_stats($response, $created_user_id)}
+
+  - name: SQL Validation - Verify User Data in Database
+    setup_hooks:
+      - ${setup_hook_prepare_user_data($created_user_id)}
+    variables:
+      # 调用SQL hook函数获取数据库中的实际值
+      db_username: ${hook_query_user_username($created_user_id)}
+      db_email: ${hook_query_user_email($created_user_id)}
+      db_full_name: ${hook_query_user_full_name($created_user_id)}
+      db_shipping_address: ${hook_query_user_shipping_address($created_user_id)}
+      db_role: ${hook_query_user_role($created_user_id)}
+    request:
+      method: GET
+      path: /api/v1/users/me
+      headers:
+        Authorization: Bearer $access_token
+    validate:
+      # API响应验证
+      - eq: [status_code, 200]
+      - eq: [$.data.id, $created_user_id]
+      - eq: [$.data.username, $username]
+      - eq: [$.data.email, $email]
+      - eq: [$.data.full_name, $full_name]
+      - eq: [$.data.role, $role]
+      # SQL验证：API返回值与数据库实际值一致
+      - eq: [$.data.username, $db_username]
+      - eq: [$.data.email, $db_email]
+      - eq: [$.data.full_name, $db_full_name]
+      - eq: [$.data.shipping_address, $db_shipping_address]
+      - eq: [$.data.role, $db_role]
+    teardown_hooks:
+      - ${teardown_hook_record_test_stats($response, $created_user_id)}
+      - ${teardown_hook_cleanup_test_user($response, $created_user_id)}

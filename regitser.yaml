@@ -1,0 +1,23 @@
+config:
+  name: Imported Case
+  base_url: http://110.40.159.145:9099
+
+steps:
+  - name: POST /api/v1/auth/register
+    request:
+      method: POST
+      path: /api/v1/auth/register
+      headers:
+        accept: application/json
+        Content-Type: application/json
+      body:
+        username: string1
+        email: user1@example.com
+        full_name: string1
+        shipping_address: string1
+        password: string1
+        role: user
+    validate:
+      - eq: [status_code, 200]
+      - contains: [headers.Content-Type, application/json]
+      - ne: [$, null]
